@@ -1,43 +1,54 @@
 #!/usr/bin/env python3
-
-"""Log stats - new version"""
-
+'''Task 15's module.
+'''
 from pymongo import MongoClient
 
 
-def log_stats():
-    """provides some stats about Nginx logs stored in MongoDB"""
-    methods = ["GET", "POST", "PUT", "PATCH", "DELETE"]
-    client = MongoClient('mongodb://localhost:27017')
-    nginx_collection = client.logs.nginx
-
-    count = nginx_collection.count_documents({})
-    print('{} logs'.format(count))
+def print_nginx_request_logs(nginx_collection):
+    '''Prints stats about Nginx request logs.
+    '''
+    print('{} logs'.format(nginx_collection.count_documents({})))
     print('Methods:')
+    methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
     for method in methods:
-        print('{}method {}: {}'.format('\t', method,
-              nginx_collection.count_documents({"method": method})))
-    print('{} status check'.format(
-          nginx_collection.count_documents(
-              {"method": "GET", "path": "/status"})))
-    ips = nginx_collection.aggregate([
-                {
-                    "$group": {
-                        "_id": "$ip",
-                        "count": {"$sum": 1}
-                    }
-                },
-                {
-                    "$sort": {
-                        "count": -1
-                    }
-                },
-                {"$limit": 10}
-        ])
+        req_count = len(list(nginx_collection.find({'method': method})))
+        print('\tmethod {}: {}'.format(method, req_count))
+    status_checks_count = len(list(
+        nginx_collection.find({'method': 'GET', 'path': '/status'})
+    ))
+    print('{} status check'.format(status_checks_count))
+
+
+def print_top_ips(server_collection):
+    '''Prints statistics about the top 10 HTTP IPs in a collection.
+    '''
     print('IPs:')
-    for ip in ips:
-        print('{}{}: {}'.format('\t', ip.get('_id'), ip.get('count')))
+    request_logs = server_collection.aggregate(
+        [
+            {
+                '$group': {'_id': "$ip", 'totalRequests': {'$sum': 1}}
+            },
+            {
+                '$sort': {'totalRequests': -1}
+            },
+            {
+                '$limit': 10
+            },
+        ]
+    )
+    for request_log in request_logs:
+        ip = request_log['_id']
+        ip_requests_count = request_log['totalRequests']
+        print('\t{}: {}'.format(ip, ip_requests_count))
 
 
-if __name__ == "__main__":
-    log_stats()
+def run():
+    '''Provides some stats about Nginx logs stored in MongoDB.
+    '''
+    client = MongoClient('mongodb://127.0.0.1:27017')
+    print_nginx_request_logs(client.logs.nginx)
+    print_top_ips(client.logs.nginx)
+
+
+if __name__ == '__main__':
+    run()
