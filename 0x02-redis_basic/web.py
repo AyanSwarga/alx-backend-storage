@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-
 """Implementing an expiring web cache and tracker"""
-
 import requests
 from typing import Callable
 from functools import wraps
